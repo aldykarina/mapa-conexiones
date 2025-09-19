@@ -1,0 +1,96 @@
+[
+  {
+    "id": "p1", 
+    "name": "Ana", 
+    "last": "Pérez", 
+    "img": "img/p1.jpg", 
+    "description": "Estudiante de ingeniería"
+  },
+  {
+    "id": "p2",
+    "name": "Bruno", 
+    "last": "Gómez", 
+    "img": "img/p2.jpg", 
+    "description": "Estudiante de medicina"
+  },
+  {
+    "id": "p3",
+    "name": "Carla", 
+    "last": "López", 
+    "img": "img/p3.jpg", 
+    "description": "Estudiante de arquitectura"
+  },
+  {
+    "id": "p4",
+    "name": "Diana", 
+    "last": "Fernández", 
+    "img": "img/p4.jpg", 
+    "description": "Estudiante de derecho"
+  },
+  {
+    "id": "p5",
+    "name": "Esteban", "last": "Martínez", "img": "img/p5.jpg", "description": "Estudiante de ciencias"
+  },
+  {
+    "id": "p6",
+    "name": "Florencia", "last": "Ruiz", "img": "img/p6.jpg", "description": "Estudiante de arte" 
+  },
+  {
+    "id": "p7",
+    "name": "Gonzalo", "last": "Sosa", "img": "img/p7.jpg", "description": "Estudiante de música"
+  },
+  {
+    "id": "p8",
+    "name": "Helena", "last": "Vega", "img": "img/p8.jpg", "description": "Estudiante de filosofía"
+  },
+  {
+    "id": "p9",
+    "name": "Iván", "last": "Alonso", "img": "img/p9.jpg", "description": "Estudiante de ciencias políticas"
+  },
+  {
+    "id": "p10",
+    "name": "Julia", "last": "Duarte", "img": "img/p10.jpg", "description": "Estudiante de biología"
+  },
+  {
+    "id": "p11",
+    "name": "Katia", "last": "Ramos", "img": "img/p11.jpg", "description": "Estudiante de psicología"
+  },
+  {
+    "id": "p12",
+    "name": "Lucía", "last": "Torres", "img": "img/p12.jpg", "description": "Estudiante de literatura"
+  },
+  {
+    "id": "p13",
+    "name": "Marcos", "last": "Paredes", "img": "img/p13.jpg", "description": "Estudiante de física" 
+  },
+  {
+    "id": "p14",
+    "name": "Natalia", "last": "Cruz", "img": "img/p14.jpg", "description": "Estudiante de química"
+  },
+  {
+    "id": "p15",
+    "name": "Oscar", "last": "Rojas", "img": "img/p15.jpg", "description": "Estudiante de ingeniería informática"
+  },
+  {
+    "id": "p16",
+    "name": "Paula", "last": "Méndez", "img": "img/p16.jpg", "description": "Estudiante de historia"
+  },
+  {
+    "id": "p17",
+    "name": "Jesi", "last": "Lara", "img": "img/p17.jpg", "description": "Estudiante de economía" 
+  },
+  {
+    "id": "p18",
+    "name": "Rocío", "last": "Campos", "img": "img/p18.jpg", "description": "Estudiante de sociología"
+  },
+  {
+    "id": "p19",
+    "name": "Santiago", "last": "Morales", "img": "img/p19.jpg", "description": "Estudiante de matemáticas"
+  },
+  {
+    "id": "p20",
+    "name": "Tamara", "last": "Ortiz", "img": "img/p20.jpg", "description": "Estudiante de diseño gráfico"
+  }
+]
+     
+  
