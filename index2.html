@@ -7,65 +7,25 @@
   <style>
     :root{--sidebar:320px;--gap:12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
     html,body{height:100%;margin:0}
-    .app{display:flex;height:100vh;gap:var(--gap); background:#f8f8f9} /**sidebar y ,map*/
+    .app{display:flex;height:100vh;gap:var(--gap)}
     .sidebar{width:var(--sidebar);padding:16px;background:#f8f8f9;border-right:1px solid #e0e0e0;box-sizing:border-box;overflow:auto}
     .sidebar h2{margin:0 0 12px 0;font-size:18px}
     .controls{display:flex;gap:8px;flex-direction:column}
     .person-list{margin-top:8px;max-height:60vh;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px;background:#fff}
     .person-item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px}
     .person-item img{width:36px;height:36px;border-radius:50%;object-fit:cover}
-    .main{flex:1;display:flex;flex-direction:column;margin-bottom: 48px; /* espacio para el footer */}
-    #cy{flex:1;border-left:1px solid #eaeaea;
-      background-color: #fff;   /*Dentro del mapa*/
-      position: relative;
-      z-index: 1;
-      overflow: hidden;
-    }
-    #cy::before {
-      content: "";
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-image: url('img/fondo-cy.png'); /*imagen */
-      background-repeat: no-repeat;
-      background-position: center;
-      background-size: contain;
-      opacity: 0.5;
-      z-index: 0;
-      pointer-events: none; /* evita que bloquee clics en el grafo */
-    }
-
-    .topbar{display:flex;gap:8px;align-items:center;padding:10px;border-bottom:1px solid #eee;background:#FF0000}
+    .main{flex:1;display:flex;flex-direction:column}
+    #cy{flex:1;border-left:1px solid #eaeaea}
+    .topbar{display:flex;gap:8px;align-items:center;padding:10px;border-bottom:1px solid #eee;background:#fff}
     button{padding:8px 10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer}
     input[type="text"]{padding:8px;border-radius:8px;border:1px solid #ccc;width:100%}
-    .small{font-size:16px;color:#ffffff; text-align: center; font-weight: bold;}
-    .topbar .small {
-      font-size: 20px;
-      color: #ffffff;
-      text-align: center;
-      font-weight: bold;
-      width: 100%;
-    }
+    .small{font-size:13px;color:#555}
     .hint{font-size:12px;color:#777;margin-top:8px}
 
-    /* --- estilos para estados de los checkboxes --- */
+    /* --- CAMBIO 4: estilos para estados de los checkboxes --- */
     .chk-saved { accent-color: green; }
     .chk-temp { accent-color: orange; }
     .chk-none { accent-color: gray; }
-    .footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background-color: #FF0000; /*#FF0000 */
-      color: #fff;
-      text-align: center;
-      padding: 12px;
-      font-weight: bold;
-      font-size: 16px;
-      z-index: 10;
-      box-shadow: 0 -2px 6px rgba(0,0,0,0.2);
-    }
-    .footer-text {margin: 0; }
   </style>
 
   <!-- Cytoscape base -->
@@ -103,7 +63,7 @@
 
     <main class="main">
       <div class="topbar">
-        <div class="small">MAPA DE CONEXIONES</div>
+        <div class="small">Visualización: nodos = personas, líneas = conocimiento</div>
       </div>
       <div id="cy"></div>
     </main>
@@ -133,14 +93,14 @@
         'text-margin-y': 4,
         'background-fit': 'cover',
         'background-image': 'data(img)', 
-        'border-color':'#FF0000', //ffffff
-        'border-width':1.5,
+        'border-color':'#ffffff',
+        'border-width':2,
         'width': 50,
         'height':50,
         'font-size':10
       }},
       { selector: 'edge', style: {
-        'width': 1.5, 'line-color': '#FF0000'
+        'width': 2, 'line-color': '#FF0000'
       }},
     ],
     layout: { name: 'cose', animate: true }
@@ -154,14 +114,13 @@
       id: p.id?.toString() || 'p'+(i+1),
       name: p.name || p.nombre || '',
       last: p.last || p.lastName || '',
-      img: p.img || p.image || ''//,
-      //description: p.description || ''
+      img: p.img || p.image || '',
+      description: p.description || ''
     }));
   }
 
   function buildElements(){
-    //const nodes = state.people.map(p=>({ data: { id: p.id, label: p.name+' '+(p.last||''), img: p.img }}));
-    const nodes = state.people.map(p=>({ data: { id: p.id, img: p.img }}));
+    const nodes = state.people.map(p=>({ data: { id: p.id, label: p.name+' '+(p.last||''), img: p.img }}));
     const edges = [];
     for(const from in state.connections){
       for(const to in state.connections[from]){
@@ -300,8 +259,5 @@
     refreshGraph();
   })();
   </script>
-  <footer class="footer">
-  <div class="footer-text">Juntos conectados</div>
-</footer>
 </body>
 </html>
