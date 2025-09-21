@@ -37,7 +37,7 @@ Este proyecto permite explorar conexiones personales de forma dinámica, guardar
 1. Cloná el repositorio:
 
    ```bash```
-   git clone https://github.com/aldykarina/mapa-conexiones.git
+   ``` git clone https://github.com/aldykarina/mapa-conexiones.git ```
 
 2. Abre el archivo index.html en tu navegador.
 

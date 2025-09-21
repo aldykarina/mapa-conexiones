@@ -3,19 +3,54 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mapa de Conexiones</title>
+  <title>Mapa de Conexiones — Mapa</title>
   <style>
-    :root{--sidebar:320px;--gap:12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
-    html,body{height:100%;margin:0}
-    .app{display:flex;height:100vh;gap:var(--gap); background:#f8f8f9} /**sidebar y ,map*/
-    .sidebar{width:var(--sidebar);padding:16px;background:#f8f8f9;border-right:1px solid #e0e0e0;box-sizing:border-box;overflow:auto}
-    .sidebar h2{margin:0 0 12px 0;font-size:18px}
-    .controls{display:flex;gap:8px;flex-direction:column}
-    .person-list{margin-top:8px;max-height:60vh;overflow:auto;border:1px solid #eee;padding:8px;border-radius:6px;background:#fff}
-    .person-item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px}
-    .person-item img{width:36px;height:36px;border-radius:50%;object-fit:cover}
-    .main{flex:1;display:flex;flex-direction:column;margin-bottom: 48px; /* espacio para el footer */}
-    #cy{flex:1;border-left:1px solid #eaeaea;
+    :root {
+      --gap: 12px;  font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+        /* Fondos */
+      --bg-1: #f8f8f9;     /* fondo general */
+      --bg-2: #ffffff;     /* fondo de tarjetas o paneles */
+      --bg-3: #f01717;     /* fondo destacado */
+
+      /* Textos */
+      --text-1: #333333;   /* texto principal */
+      --text-2: #777777;   /* texto secundario o hints */
+      --text-3: #ffffff;   /* texto sobre fondo oscuro */
+    }
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; background: var(--bg-1); }
+
+    /* --- CAMBIO: Header ocupa todo el ancho */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: center;  /*centramos contenido --- */
+      padding: 10px 16px;
+      border-bottom: 1px solid #eee;
+      background: var(--bg-3);
+      color: #fff;
+      font-weight: bold;
+      position: relative; /*  para ubicar menú a la derecha --- */
+      z-index: 10; 
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      text-align: center; /* --- CAMBIO NUEVO: centrado --- */
+      flex: 1;            /* --- CAMBIO NUEVO: ocupar ancho para mantener centrado --- */
+    }
+
+    button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    /*#cy {       flex: 1;      background: #fff;      position: relative;      overflow: hidden;    }*/
+    #cy{ flex:1; border-left:1px solid #eaeaea;
       background-color: #fff;   /*Dentro del mapa*/
       position: relative;
       z-index: 1;
@@ -34,274 +69,267 @@
       pointer-events: none; /* evita que bloquee clics en el grafo */
     }
 
-    .topbar{display:flex;gap:8px;align-items:center;padding:10px;border-bottom:1px solid #eee;background:#FF0000}
-    button{padding:8px 10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer}
-    input[type="text"]{padding:8px;border-radius:8px;border:1px solid #ccc;width:100%}
-    .small{font-size:16px;color:#ffffff; text-align: center; font-weight: bold;}
-    .topbar .small {
-      font-size: 20px;
-      color: #ffffff;
-      text-align: center;
-      font-weight: bold;
-      width: 100%;
-    }
-    .hint{font-size:12px;color:#777;margin-top:8px}
-
-    /* --- estilos para estados de los checkboxes --- */
-    .chk-saved { accent-color: green; }
-    .chk-temp { accent-color: orange; }
-    .chk-none { accent-color: gray; }
     .footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background-color: #FF0000; /*#FF0000 */
+      background-color: var(--bg-3);
       color: #fff;
       text-align: center;
       padding: 12px;
       font-weight: bold;
       font-size: 16px;
-      z-index: 10;
       box-shadow: 0 -2px 6px rgba(0,0,0,0.2);
     }
-    .footer-text {margin: 0; }
-  </style>
+    .menu-container {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 20;
+    }
+    .menu-toggle {
+      background: #fff;
+      color: var(--bg-3);
+      font-size: 18px;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .menu-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background: white;
+      min-width: 160px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+      z-index: 30;
+    }
+    .menu-content button {
+      background: none;
+      border: none;
+      padding: 10px;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+    }
+    .menu-content button:hover {
+      background: #f1f1f1;
+    }
 
-  <!-- Cytoscape base -->
+  </style>
   <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <h2>Mapa de Conexiones</h2>
-      <div class="controls">
-        <label class="small">Soy:</label>
-        <input id="currentPersonInput" type="text" placeholder="Escribe tu nombre..." />
-        <select id="currentPerson" size="5" style="margin-top:4px;"></select>
-
-        <label class="small">Busca persona:</label>
-        <input id="searchPerson" type="text" placeholder="nombre o apellido" />
-
-        <div style="margin-top:8px">
-          <div class="small">Marcar a quienes conoces:</div>
-          <div id="personList" class="person-list"></div>
-        </div>
-
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button id="btnSave">Guardar conexiones</button>
-          <button id="btnClear">Borrar datos</button>
-        </div>
-
-        <div style="margin-top:12px">
-          <button id="btnExport">Exportar PNG</button>
-        </div>
-
-        <p class="small hint">Nota: Los cambios se guardan en <code>localStorage</code>. El gráfico se puede exportar como imagen.</p>
+  <!--Header con título y menú hamburguesa -->
+  <header class="header">
+    <h1>MAPA DE CONEXIONES</h1>
+    <!-- --- Menú hamburguesa con botones --- -->
+    <div class="menu-container">
+      <button class="menu-toggle">☰</button>
+      <div class="menu-content">
+        <button id="btnConectate">Conéctate aquí</button>
+        <button id="btnExportMap">Exportar Mapa</button>
       </div>
-    </aside>
+    </div>
+  </header>
 
-    <main class="main">
-      <div class="topbar">
-        <div class="small">MAPA DE CONEXIONES</div>
-      </div>
-      <div id="cy"></div>
-    </main>
-  </div>
+  <!-- CAMBIO: Mapa ocupa todo el espacio -->
+  <main style="flex:1; display:flex; flex-direction:column">
+    <div id="cy"></div>
+  </main>
+
+  <footer class="footer">Juntos conectados</footer>
 
   <script>
-  const PEOPLE_JSON = './people_example20.json';
-  const LS_KEY = 'mapaConexiones_v1';
+    const PEOPLE_JSON = './people_example20.json';
+    const LS_KEY = 'mapaConexiones_v1';
+    let state = { people: [], connections: {} };
 
-  let state = { people: [], connections: {} };
+    // helpers
+    function loadAll(){ const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null }
 
-  // 🔧 NUEVO: memoria temporal para selecciones no guardadas
-  let tempSelections = {}; 
+    // Cytoscape init (solo vista)
+    const getVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
-  // Helpers de storage
-  function saveAll(obj){ localStorage.setItem(LS_KEY, JSON.stringify(obj)) }
-  function loadAll(){ const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null }
+    const cy = cytoscape({
+      container: document.getElementById('cy'),
+      elements: [],
+      style: [
+        { selector: 'node', style: {
+            'label': 'data(label)',
+            'text-valign': 'bottom',
+            'text-margin-y': 4,
+            'background-fit': 'cover',
+            'background-image': 'data(img)',
+            'border-color':getVar('--bg-3'),
+            'border-width':1.5,
+            'width': 50,
+            'height':50,
+            'font-size':10
+        }},
+        { selector: 'edge', style: { 'width': 1.5, 'line-color': getVar('--bg-3')}},
+      ],
+      layout: { name: 'cose', animate: true }
+    });
 
-  // Inicializar Cytoscape
-  const cy = cytoscape({
-    container: document.getElementById('cy'),
-    elements: [],
-    style: [
-      { selector: 'node', style: {
-        'label': 'data(label)',
-        'text-valign': 'bottom',
-        'text-margin-y': 4,
-        'background-fit': 'cover',
-        'background-image': 'data(img)', 
-        'border-color':'#FF0000', //ffffff
-        'border-width':1.5,
-        'width': 50,
-        'height':50,
-        'font-size':10
-      }},
-      { selector: 'edge', style: {
-        'width': 1.5, 'line-color': '#FF0000'
-      }},
-    ],
-    layout: { name: 'cose', animate: true }
-  });
-
-  // Cargar personas
-  async function fetchPeople(){
-    const res = await fetch(PEOPLE_JSON);
-    const js = await res.json();
-    return js.map((p,i)=>({
-      id: p.id?.toString() || 'p'+(i+1),
-      name: p.name || p.nombre || '',
-      last: p.last || p.lastName || '',
-      img: p.img || p.image || ''//,
-      //description: p.description || ''
-    }));
-  }
-
-  function buildElements(){
-    //const nodes = state.people.map(p=>({ data: { id: p.id, label: p.name+' '+(p.last||''), img: p.img }}));
-    const nodes = state.people.map(p=>({ data: { id: p.id, img: p.img }}));
-    const edges = [];
-    for(const from in state.connections){
-      for(const to in state.connections[from]){
-        edges.push({ data: { id: from+'_'+to, source: from, target: to }});
+    async function fetchPeople(){
+      try{
+        const res = await fetch(PEOPLE_JSON);
+        const js = await res.json();
+        return js.map((p,i)=>({
+          id: p.id?.toString() || 'p'+(i+1),
+          name: p.name||'',
+          last: p.last||'',
+          img: p.img||''
+        }));
+      }catch(e){
+        console.warn('No se pudo cargar JSON:', e);
+        return [];
       }
     }
-    return {nodes, edges};
-  }
 
-  function refreshGraph(){
-    const elems = buildElements();
-    cy.elements().remove();
-    cy.add(elems.nodes);
-    cy.add(elems.edges);
-    cy.layout({ name:'cose', animate:true }).run();
-  }
-
-  // UI
-  const sel = document.getElementById('currentPerson');
-  const input = document.getElementById('currentPersonInput');
-  const list = document.getElementById('personList');
-  const search = document.getElementById('searchPerson');
-
-  function populateSelect(filter=''){
-    sel.innerHTML = '';
-    state.people
-      .filter(p=>(p.name+' '+(p.last||'')).toLowerCase().includes(filter.toLowerCase()))
-      .forEach(p=>{
-        const opt=document.createElement('option');
-        opt.value=p.id; opt.textContent=p.name+' '+(p.last||'');
-        sel.appendChild(opt);
-      });
-  }
-
-  // 🔧 NUEVO: combino lo guardado con lo temporal + colores (CAMBIO 4)
-  function renderPersonList(filter=''){
-    list.innerHTML='';
-    const me = sel.value;
-    if(!me) return;
-
-    const conns = {...(state.connections[me] || {}), ...(tempSelections[me] || {})};
-
-    state.people
-      .filter(p=>(p.name+' '+(p.last||'')).toLowerCase().includes(filter.toLowerCase()))
-      .forEach(p=>{
-        if(p.id===me) return;
-        const item=document.createElement('div'); item.className='person-item';
-        const img=document.createElement('img'); img.src=p.img;
-        const label=document.createElement('div'); label.textContent=p.name+' '+(p.last||''); label.style.flex='1';
-        const chk=document.createElement('input');
-        chk.type='checkbox';
-        chk.dataset.id=p.id;
-        chk.checked = !!conns[p.id]; 
-
-        // --- CAMBIO 4: definir color según estado ---
-        if(state.connections[me]?.[p.id]){
-          chk.className = 'chk-saved';
-        } else if(tempSelections[me]?.[p.id]){
-          chk.className = 'chk-temp';
-        } else {
-          chk.className = 'chk-none';
+    function buildElements(){
+      const nodes = state.people.map(p=>({ data: { id: p.id, img: p.img }}));
+      //const nodes = state.people.map(p=>({ data: { id: p.id, label: p.name+' '+(p.last||''), img: p.img }}));
+      const edges = [];
+      for(const from in state.connections){
+        for(const to in state.connections[from]){
+          edges.push({ data: { id: from+'_'+to, source: from, target: to }});
         }
-
-        // 🔧 NUEVO: cuando clickeo un checkbox actualizo tempSelections
-        chk.addEventListener('change', ()=>{
-          if(!tempSelections[me]) tempSelections[me] = {};
-          if(chk.checked){
-            tempSelections[me][p.id] = true;
-          } else {
-            delete tempSelections[me][p.id];
-          }
-          renderPersonList(filter); // refresco para actualizar color
-        });
-
-        item.appendChild(img); item.appendChild(label); item.appendChild(chk);
-        list.appendChild(item);
-      });
-  }
-
-  // Eventos
-  input.addEventListener('input',()=>populateSelect(input.value));
-  sel.addEventListener('change',()=>renderPersonList(search.value));
-  search.addEventListener('input',()=>renderPersonList(search.value));
-
-  // 🔧 NUEVO: guardado fusiona tempSelections con state.connections
-  document.getElementById('btnSave').addEventListener('click',()=>{
-    const me = sel.value;
-    if(!me) return;
-
-    if(!state.connections[me]) state.connections[me] = {};
-
-    // aplico lo que haya en tempSelections
-    if(tempSelections[me]){
-      for(const id in tempSelections[me]){
-        state.connections[me][id] = true;
       }
-      tempSelections[me] = {}; // limpio después de guardar
+      return { nodes, edges };
     }
 
-    // sincronizo con lo visible por si hubo cambios
-    const checks = Array.from(list.querySelectorAll('input[type=checkbox]'));
-    checks.forEach(c=>{
-      if(c.checked){
-        state.connections[me][c.dataset.id] = true;
-      } else {
-        delete state.connections[me][c.dataset.id];
+    function refreshGraph(){
+      const elems = buildElements();
+      cy.elements().remove();
+      cy.add(elems.nodes);
+      cy.add(elems.edges);
+      cy.layout({ name:'cose', animate:true }).run();
+    }
+
+    // react to storage changes from edit.html
+    window.addEventListener('storage', (e)=>{
+      if(e.key === LS_KEY){
+        const persisted = JSON.parse(e.newValue || '{}');
+        state.connections = persisted.connections || {};
+        refreshGraph();
       }
     });
 
-    saveAll(state);
-    refreshGraph();
-    renderPersonList(search.value);
-    alert('Conexiones guardadas');
+    // Exportar PNG
+    /*  document.getElementById('btnExportMap').addEventListener('click', ()=>{
+      const png = cy.png({ full:true, scale:2 });
+      const a = document.createElement('a'); a.href = png; a.download = 'mapa-conexiones-map.jpg'; a.click();
+    });  */
+    // --- CAMBIO: exportar con header y footer personalizados ---
+    
+  document.getElementById('btnExportMap').addEventListener('click', ()=>{
+
+    const bgColor = getVar('--bg-3');     // fondo rojo
+    const textColor = getVar('--text-3'); // texto blanco
+    const canvasBg = getVar('--bg-2');    // fondo general (blanco)
+
+    const graphPng = cy.png({ full: true, scale: 2, bg: 'transparent'}); // grafo con fondo transparente
+    const img = new Image();
+    img.src = graphPng;
+
+    // Cargar también la imagen de fondo
+    const bgImg = new Image();
+    bgImg.src = 'img/fondo-cy.png';
+
+    Promise.all([
+      new Promise(res => img.onload = res),
+      new Promise(res => bgImg.onload = res)
+    ]).then(()=>{
+
+      const padding = {top: 20, right: 20, bottom: 20, left: 20 };
+      const graphWidth = img.width;
+      const graphHeight = img.height;
+      const headerHeight = 60;
+      const footerHeight = 50;
+
+      const totalWidth = padding.left + graphWidth + padding.right;
+      const totalHeight = headerHeight + padding.top + graphHeight + padding.bottom + footerHeight;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = totalWidth;
+      canvas.height = totalHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Fondo blanco
+      ctx.fillStyle = canvasBg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Header rojo
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, canvas.width, headerHeight);
+      ctx.fillStyle = textColor;
+      ctx.font = "bold 30px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Mapa de Conexiones", canvas.width / 2, headerHeight / 2);
+
+      // --- Fondo del grafo ---
+      const bgWidth = graphWidth;  // ajustar tamaño según prefieras
+      const bgHeight = graphHeight;
+      const bgX = padding.left;
+      const bgY = headerHeight + padding.top;
+      ctx.globalAlpha = 0.5; // igual que tu CSS
+      ctx.drawImage(bgImg, bgX, bgY, bgWidth, bgHeight);
+      ctx.globalAlpha = 1;
+
+      // Grafo
+      ctx.drawImage(img, padding.left, headerHeight + padding.top);
+
+      // Footer
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, headerHeight + padding.top + graphHeight + padding.bottom, canvas.width, footerHeight);
+      ctx.fillStyle = textColor;
+      ctx.font = "bold 22px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Juntos conectados", canvas.width / 2, headerHeight + padding.top + graphHeight + padding.bottom + footerHeight / 2);
+
+      // Descargar
+      const finalPng = canvas.toDataURL("image/png");
+      const a = document.createElement('a');
+      a.href = finalPng;
+      a.download = 'mapa-conexiones.png';
+      a.click();
+    });
   });
 
-  document.getElementById('btnClear').addEventListener('click',()=>{
-    if(!confirm('Borrar todo?')) return;
-    localStorage.removeItem(LS_KEY);
-    state.connections={}; tempSelections={}; // 🔧 limpio también temporales
-    refreshGraph(); renderPersonList();
-  });
 
-  document.getElementById('btnExport').addEventListener('click',()=>{
-    const png=cy.png({full:true,scale:2});
-    const a=document.createElement('a'); a.href=png; a.download='mapa-conexiones.png'; a.click();
-  });
+    // Conectate aquí
+    document.getElementById('btnConectate').addEventListener('click', ()=>{
+      // abre en la misma pestaña (puedes cambiar target si querés nueva pestaña) //window.location.href = './edit.html';
+      window.open('./edit.html', '_blank');
+    });
 
-  // Init
-  (async function init(){
-    const persisted=loadAll();
-    const remote=await fetchPeople();
-    state.people=remote;
-    state.connections=persisted?.connections||{};
-    populateSelect();
-    renderPersonList();
-    refreshGraph();
-  })();
+    // --- Lógica menú hamburguesa ---
+    document.querySelector(".menu-toggle").addEventListener("click", () => {
+      const menu = document.querySelector(".menu-content");
+      menu.style.display = menu.style.display === "block" ? "none" : "block";
+    });
+    window.addEventListener("click", (e) => {
+      if (!e.target.matches('.menu-toggle')) {
+        const menu = document.querySelector(".menu-content");
+        if (menu.style.display === "block") {
+          menu.style.display = "none";
+        }
+      }
+    });
+
+    // Init
+    (async function init(){
+      const persisted = loadAll();
+      const people = await fetchPeople();
+      state.people = people;
+      state.connections = persisted?.connections || {};
+      refreshGraph();
+    })();
   </script>
-  <footer class="footer">
-  <div class="footer-text">Juntos conectados</div>
-</footer>
 </body>
 </html>

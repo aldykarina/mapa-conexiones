@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mapa de Conexiones — Editar</title>
+  <style>
+    :root{--sidebar:400px;--gap:12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;
+    /* Fondos */
+      --bg-1: #f8f8f9;     /* fondo general */
+      --bg-2: #ffffff;     /* fondo de tarjetas o paneles */
+      --bg-3: #f01717;     /* fondo destacado */
+      --bg-4: #bbbbbb;
+      
+      /* Textos */
+      --text-1: #333333;   /* texto principal */
+      --text-2: #777777;   /* texto secundario o hints */
+      --text-3: #ffffff;   /* texto sobre fondo oscuro */
+    }
+    html,body{height: 100%;margin:0}
+    .app{display:flex; ;gap:var(--gap);background:var(--bg-1); min-height: calc(100vh - 48px);}
+    .sidebar{width:var(--sidebar);padding-left: 20px ; padding-right: 20px; padding-bottom: 20px ;flex-shrink: 0; background:var(--bg-1);border-right:1px solid #e0e0e0;box-sizing:border-box;overflow:auto;display:flex;flex-direction:column}
+    .person-list{margin-top:8px;max-height:40vh;overflow:auto;border:1px solid var(--bg-1);padding:8px;border-radius:6px;background:var(--bg-2)}
+    .person-item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px}
+    .person-item img{width:36px;height:36px;border-radius:50%;object-fit:cover}
+    .main{flex:1; display:flex;flex-direction:column; min-width: 300px; overflow: hidden;}
+    #cy{width: 100%;
+        height: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        flex:1; border-left:1px solid var(--bg-1);background:var(--bg-2);position:relative;overflow:hidden}
+    #cy::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url('img/fondo-cy.png'); /*imagen */
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      opacity: 0.5;
+      z-index: 0;
+      pointer-events: none; /* evita que bloquee clics en el grafo */
+    }
+    .topbar{display:flex;align-items:center;gap:8px;padding:10px;border-bottom:1px solid var(--bg-1);background:var(--bg-3);color:var(--bg-2);font-size:20px; font-weight:bold;justify-content:center}
+    button{padding:8px 10px;border-radius:8px;border:1px solid var(--bg-4);background:var(--bg-2);cursor:pointer}
+    input[type="text"]{padding:8px;border-radius:8px;border:1px solid var(--bg-4);width:-webkit-fill-available;}
+    .small{font-size:14px;color:var(--text-1)}
+    .hint{font-size:12px;color:var(--text-2);margin-top:8px}
+    .chk-saved { accent-color: green; }
+    .chk-temp { accent-color: orange; }
+    .chk-none { accent-color: gray; }
+    .footer { position: sticky; bottom: 0; left: 0; width: 100%; background-color: var(--bg-3); color: var(--bg-2); text-align: center; padding: 12px; font-weight: bold; font-size: 16px; z-index: 10; box-shadow: 0 -2px 6px rgba(0,0,0,0.2); }
+    #btnSave { width:100%; background:var(--bg-3); color:var(--bg-2); font-size:14px; font-weight:bold; border:none; }
+    #btnClear { font-size:12px; background:var(--bg-2); color:var(--text-2); border:1px solid var(--bg-4); margin-top:auto; }
+    /* #currentPerson { display:none; } /* ocultar listado fijo */
+    #currentPerson {
+        position: absolute;
+        background: var(--bg-2);
+        border: 1px solid var(--bg-4);
+        border-radius: 10px;
+        max-height: 150px;
+        overflow-y: auto;
+        width: calc(100% - 40px); /* mismo ancho que el input (sidebar padding 20px) */
+        z-index: 999; /* por encima de todo */
+        display: none; /* oculto por defecto */
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+  </style>
+
+  <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="topbar">Editar conexiones</div>
+
+      <div style="margin-top:12px ; position: relative;">
+        <label class="small">Soy:</label>
+        <input id="currentPersonInput" type="text" placeholder="Escribe tu nombre..." autocomplete="off"/>
+        <select id="currentPerson" size="5" style="margin-top:4px;"></select>
+      </div>
+
+      <div style="margin-top:12px">
+        <label class="small">Busca persona:</label>
+        <input id="searchPerson" type="text" placeholder="nombre o apellido" />
+      </div>
+
+      <div style="margin-top:8px">
+        <div class="small">Marcar a quienes conoces:</div>
+        <div id="personList" class="person-list"></div>
+      </div>
+
+      <div style="margin-top:12px">
+        <button id="btnSave">Guardar conexiones</button>
+      </div>
+
+      <p class="hint">🟩 Guardado — 🟧 Seleccionado — ⬜ No marcado</p>
+
+      <div style="margin-top:12px">
+        <button id="btnVolver" style="width:100%;">← Volver al mapa</button>
+      </div>
+
+      <button id="btnClear" style="margin-top:20px" >Borrar datos</button>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">MAPA DE CONEXIONES</div>
+      <div id="cy" style="height:100%;"></div>
+    </main>
+  </div>
+
+  <footer class="footer">Juntos conectados</footer>
+
+<script>
+const PEOPLE_JSON = './people_example20.json';
+const LS_KEY = 'mapaConexiones_v1';
+
+let state = { people: [], connections: {} };
+let tempSelections = {};
+
+// Storage helpers
+function saveAll(obj){ localStorage.setItem(LS_KEY, JSON.stringify(obj)) }
+function loadAll(){ const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null }
+
+// Cytoscape
+const getVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements: [],
+  style: [
+    { selector: 'node', style: {
+        'label': 'data(label)',
+        'text-valign': 'bottom',
+        'text-margin-y': 4,
+        'background-fit': 'cover',
+        'background-image': 'data(img)',
+        'border-color': getVar('--bg-3'),
+        'border-width':1.5,
+        'width': 50,
+        'height':50,
+        'font-size':10
+    }},
+    { selector: 'edge', style: { 'width': 1.5, 'line-color':  getVar('--bg-3') }},
+  ],
+  layout: { name: 'cose', animate: true }
+});
+
+// Fetch people
+async function fetchPeople(){
+  const res = await fetch(PEOPLE_JSON);
+  const js = await res.json();
+  return js.map((p,i)=>({
+    id: p.id?.toString() || 'p'+(i+1),
+    name: p.name||'',
+    last: p.last||'',
+    img: p.img||''
+  }));
+}
+
+function buildElements(){
+  const nodes = state.people.map(p=>({ data: { id: p.id, label: p.name+' '+(p.last||''), img: p.img }}));
+  const edges = [];
+  for(const from in state.connections){
+    for(const to in state.connections[from]){
+      edges.push({ data: { id: from+'_'+to, source: from, target: to }});
+    }
+  }
+  return { nodes, edges };
+}
+
+function refreshGraph(){
+  const elems = buildElements();
+  cy.elements().remove();
+  cy.add(elems.nodes);
+  cy.add(elems.edges);
+  cy.layout({ name:'cose', animate:true }).run();
+}
+
+// UI
+const sel = document.getElementById('currentPerson');
+const input = document.getElementById('currentPersonInput');
+const list = document.getElementById('personList');
+const search = document.getElementById('searchPerson');
+
+function populateSelect(filter=''){
+  sel.innerHTML = '';
+  state.people
+    .filter(p=>(p.name+' '+(p.last||'')).toLowerCase().includes(filter.toLowerCase()))
+    .forEach(p=>{
+      const opt=document.createElement('option');
+      opt.value=p.id; opt.textContent=p.name+' '+(p.last||'');
+      sel.appendChild(opt);
+    });
+  // Mostrar si hay resultados, ocultar si no
+  sel.style.display = sel.options.length>0 ? 'block':'none';
+}
+
+// Combina guardadas + temporales
+function renderPersonList(filter=''){
+  list.innerHTML='';
+  const me = sel.value;
+  if(!me) return;
+
+  const conns = {...(state.connections[me] || {}), ...(tempSelections[me] || {})};
+
+  state.people
+    .filter(p=>(p.name+' '+(p.last||'')).toLowerCase().includes(filter.toLowerCase()))
+    .forEach(p=>{
+      if(p.id===me) return;
+      const item=document.createElement('div'); item.className='person-item';
+      const img=document.createElement('img'); img.src=p.img;
+      const label=document.createElement('div'); label.textContent=p.name+' '+(p.last||''); label.style.flex='1';
+      const chk=document.createElement('input');
+      chk.type='checkbox';
+      chk.dataset.id=p.id;
+      chk.checked = !!conns[p.id];
+
+      if(state.connections[me]?.[p.id]){
+        chk.className = 'chk-saved';
+      } else if(tempSelections[me]?.[p.id]){
+        chk.className = 'chk-temp';
+      } else {
+        chk.className = 'chk-none';
+      }
+
+      chk.addEventListener('change', ()=>{
+        if(!tempSelections[me]) tempSelections[me] = {};
+        if(chk.checked){
+          tempSelections[me][p.id] = true;
+        } else {
+          delete tempSelections[me][p.id];
+        }
+        renderPersonList(filter);
+      });
+
+      item.appendChild(img); item.appendChild(label); item.appendChild(chk);
+      list.appendChild(item);
+    });
+}
+
+// Eventos Soy
+input.addEventListener('input', ()=> populateSelect(input.value));
+
+sel.addEventListener('change', ()=> { 
+  input.value = sel.options[sel.selectedIndex].text; 
+  sel.style.display='none'; 
+  renderPersonList(search.value); 
+  refreshGraph(); 
+});
+
+// Si hacés click afuera, ocultar menú
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#currentPersonInput') && !e.target.closest('#currentPerson')){
+    sel.style.display = 'none';
+  }
+});
+
+search.addEventListener('input', ()=> renderPersonList(search.value));
+
+
+// Volver
+document.getElementById('btnVolver').addEventListener('click', ()=> {
+  window.location.href = './index.html';
+});
+
+
+
+// Guardar conexiones
+document.getElementById('btnSave').addEventListener('click', ()=>{
+  const me = sel.value;
+  if(!me) return;
+
+  if(!state.connections[me]) state.connections[me] = {};
+
+  if(tempSelections[me]){
+    for(const id in tempSelections[me]) state.connections[me][id] = true;
+    tempSelections[me] = {};
+  }
+
+  const checks = Array.from(list.querySelectorAll('input[type=checkbox]'));
+  checks.forEach(c=>{
+    if(c.checked) state.connections[me][c.dataset.id] = true;
+    else delete state.connections[me][c.dataset.id];
+  });
+
+  saveAll(state);
+  refreshGraph();
+  renderPersonList(search.value);
+  alert('Conexiones guardadas');
+});
+
+// Borrar todo con código
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  const conf = prompt("Escribe el código 'BORRAR' para eliminar todos los datos:");
+  if(conf!=="BORRAR") return alert("Código incorrecto, operación cancelada.");
+  localStorage.removeItem(LS_KEY);
+  state.connections={}; tempSelections={};
+  refreshGraph(); renderPersonList();
+  alert("Todos los datos fueron borrados.");
+});
+
+// Init
+(async function init(){
+  const persisted = loadAll();
+  const people = await fetchPeople();
+  state.people = people;
+  state.connections = persisted?.connections || {};
+  populateSelect();
+  renderPersonList();
+  refreshGraph();
+})();
+</script>
+</body>
+</html>
