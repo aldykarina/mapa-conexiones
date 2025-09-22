@@ -65,15 +65,6 @@
         display: none; /* oculto por defecto */
         box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
-   #filterBar span {
-      padding: 2px 6px;
-      border-radius: 4px;
-      transition: background 0.2s;
-    }
-    #filterBar span.selected {
-      background-color: rgba(148, 148, 148, 0.452); /* fondo cuando está seleccionado */
-    }
-
   </style>
 
   <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
@@ -89,28 +80,24 @@
         <select id="currentPerson" size="5" style="margin-top:4px;"></select>
       </div>
 
-      <div style="margin-top:8px">
-        <div class="small">Marcar a quienes conoces:</div>
-
-        <div style="margin-top:12px">
-          <label class="small">Busca persona:</label>
-          <input id="searchPerson" type="text" placeholder="nombre o apellido" />
-        </div>
-
-        <div id="personList" class="person-list"></div>
+      <div style="margin-top:12px">
+        <label class="small">Busca persona:</label>
+        <input id="searchPerson" type="text" placeholder="nombre o apellido" />
       </div>
 
+      <div style="margin-top:8px">
+        <div class="small">Marcar a quienes conoces:</div>
+        <div id="personList" class="person-list"></div>
+      </div>
 
       <div style="margin-top:12px">
         <button id="btnSave">Guardar conexiones</button>
       </div>
 
-      <!-- === NUEVO: filtro de estado === -->
-      <div id="filterBar" style="margin-top:12px; display:flex; gap:12px; font-size:12px; cursor:pointer;">
-        <span data-filter="all" style="color:#333;">⬜ Todos (0)</span>
-        <span data-filter="saved" style="color:green;">🟩 Guardado (0)</span>
-        <span data-filter="temp" style="color:orange;">🟧 Seleccionado (0)</span>
-      </div>     
+      <!-- === NUEVO: Contador dinámico === -->
+      <div id="selectionSummary" class="hint" style="font-size:14px; margin-top:8px;">
+        🟩 Guardado (<span id="savedCount" style="color:green;">0</span>) — 🟧 Seleccionado (<span id="tempCount" style="color:rgb(221, 82, 2);">0</span>)
+      </div>
 
       <div style="margin-top:12px">
         <button id="btnVolver" style="width:100%;">← Volver al mapa</button>
@@ -185,6 +172,183 @@ function buildElements(){
   }
   return { nodes, edges };
 }
+
+function refreshGraph(){
+  const elems = buildElements();
+  cy.elements().remove();
+  cy.add(elems.nodes);
+  cy.add(elems.edges);
+  cy.layout({ name:'cose', animate:true }).run();
+}
+
+// UI
+const sel = document.getElementById('currentPerson');
+const input = document.getElementById('currentPersonInput');
+const list = document.getElementById('personList');
+const search = document.getElementById('searchPerson');
+
+function populateSelect(filter=''){
+  sel.innerHTML = '';
+  state.people
+    .filter(p=>(p.name+' '+(p.last||'')).toLowerCase().includes(filter.toLowerCase()))
+    .forEach(p=>{
+      const opt=document.createElement('option');
+      opt.value=p.id; opt.textContent=p.name+' '+(p.last||'');
+      sel.appendChild(opt);
+    });
+  // Mostrar si hay resultados, ocultar si no
+  sel.style.display = sel.options.length>0 ? 'block':'none';
+}
+
+// Combina guardadas + temporales
+function renderPersonList(filter=''){
+  list.innerHTML='';
+  const me = sel.value;
+  if(!me) return;
+
+  const conns = {...(state.connections[me] || {}), ...(tempSelections[me] || {})};
+
+  state.people
+    .filter(p=>(p.name+' '+(p.last||'')).toLowerCase().includes(filter.toLowerCase()))
+    .forEach(p=>{
+      if(p.id===me) return;
+      const item=document.createElement('div'); item.className='person-item';
+      const img=document.createElement('img'); img.src=p.img;
+      const label=document.createElement('div'); label.textContent=p.name+' '+(p.last||''); label.style.flex='1';
+      const chk=document.createElement('input');
+      chk.type='checkbox';
+      chk.dataset.id=p.id;
+      chk.checked = !!conns[p.id];
+
+      if(state.connections[me]?.[p.id]){
+        chk.className = 'chk-saved';
+      } else if(tempSelections[me]?.[p.id]){
+        chk.className = 'chk-temp';
+      } else {
+        chk.className = 'chk-none';
+      }
+
+      chk.addEventListener('change', ()=>{
+        if(!tempSelections[me]) tempSelections[me] = {};
+        if(chk.checked){
+          tempSelections[me][p.id] = true;
+        } else {
+          delete tempSelections[me][p.id];
+        }
+        renderPersonList(filter);
+      });
+
+      item.appendChild(img); item.appendChild(label); item.appendChild(chk);
+      list.appendChild(item);
+    });
+  // === NUEVO: actualizar contador al renderizar ===
+  updateSelectionSummary();
+
+}
+
+// Eventos Soy
+input.addEventListener('input', ()=> populateSelect(input.value));
+
+sel.addEventListener('change', ()=> { 
+  input.value = sel.options[sel.selectedIndex].text; 
+  sel.style.display='none'; 
+  renderPersonList(search.value); 
+  refreshGraph(); 
+});
+
+// Si hacés click afuera, ocultar menú
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#currentPersonInput') && !e.target.closest('#currentPerson')){
+    sel.style.display = 'none';
+  }
+});
+
+search.addEventListener('input', ()=> renderPersonList(search.value));
+
+
+// Volver
+document.getElementById('btnVolver').addEventListener('click', ()=> {
+  window.location.href = './index.html';
+});
+
+// === NUEVO: función para actualizar contador dinámico ===
+function updateSelectionSummary() {
+  const me = sel.value;
+  if (!me) return;
+
+  let savedCount = 0;
+  let tempCount = 0;
+
+  const conns = state.connections[me] || {};
+  const temps = tempSelections[me] || {};
+
+  state.people.forEach(p => {
+    if (p.id === me) return;
+    if (conns[p.id]) {
+      savedCount++;
+    } else if (temps[p.id]) {
+      tempCount++;
+    }
+  });
+
+  document.getElementById("savedCount").textContent = savedCount;
+  document.getElementById("tempCount").textContent = tempCount;
+}
+
+
+// Guardar conexiones
+document.getElementById('btnSave').addEventListener('click', ()=>{
+  const me = sel.value;
+  if(!me) return;
+
+  if(!state.connections[me]) state.connections[me] = {};
+
+  if(tempSelections[me]){
+    for(const id in tempSelections[me]) state.connections[me][id] = true;
+    tempSelections[me] = {};
+  }
+
+  const checks = Array.from(list.querySelectorAll('input[type=checkbox]'));
+  checks.forEach(c=>{
+    if(c.checked) state.connections[me][c.dataset.id] = true;
+    else delete state.connections[me][c.dataset.id];
+  });
+
+  saveAll(state);
+  refreshGraph();
+  renderPersonList(search.value);
+  updateSelectionSummary(); // === NUEVO ===
+  alert('Conexiones guardadas');
+});
+
+
+// Borrar todo con código
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  const conf = prompt("Escribe el código 'BORRAR' para eliminar todos los datos:");
+  if(conf!=="BORRAR") return alert("Código incorrecto, operación cancelada.");
+  localStorage.removeItem(LS_KEY);
+  state.connections={}; tempSelections={};
+  refreshGraph(); renderPersonList();
+  alert("Todos los datos fueron borrados.");
+});
+
+// Init
+(async function init(){
+  const persisted = loadAll();
+  const people = await fetchPeople();
+  state.people = people;
+  state.connections = persisted?.connections || {};
+  populateSelect();
+  renderPersonList();
+  refreshGraph();
+})();
+</script>
+</body>
+</html>
+
+
+varias funciones del grafo con ANIMACION
+
 
 /*  // FUNCION  random sin cuadrado
 function refreshGraph(){
@@ -279,267 +443,3 @@ function refreshGraph(){
 }
 */
   // FUNCION CUADRARDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-
-
-function refreshGraph(autoMove = true){
-  const elems = buildElements();
-  cy.elements().remove();
-  cy.add(elems.nodes);
-  cy.add(elems.edges);
-
-  // Configuración del grid
-  //const gridSize = Math.ceil(Math.sqrt(elems.nodes.length));
-  const cols = 6; // más columnas = más ancho
-  const rows = Math.ceil(elems.nodes.length / cols);
-  const spacing = 150; // distancia entre celdas
-  let positions = [];
-
-  // Generar todas las posiciones de la grilla
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      positions.push({ 
-        x: col * spacing, 
-        y: row * spacing 
-      });
-    }
-  }
-
-  // Función que baraja y aplica nuevas posiciones
-  function shufflePositions(){
-    // Barajar posiciones (Fisher-Yates)
-    for (let i = positions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [positions[i], positions[j]] = [positions[j], positions[i]];
-    }
-
-    // Aplicar nuevas posiciones con animación
-    cy.nodes().forEach((node, i) => {
-      const pos = positions[i];
-      node.animate({
-        position: {
-          x: pos.x + (Math.random() - 0.5) * 50, // pequeño desplazamiento extra
-          y: pos.y + (Math.random() - 0.5) * 50
-        },
-        duration: 1000 // 1s animación
-      });
-    });
-
-    cy.fit(cy.nodes(), 80); // ajustar al canvas con padding
-  }
-
-  // Ejecutar una vez
-  shufflePositions();
-
-  // Si autoMove está activado, repetir cada 10s = 10.000 / 
-  if(autoMove){
-    setInterval(shufflePositions, 100000);
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-// UI
-const sel = document.getElementById('currentPerson');
-const input = document.getElementById('currentPersonInput');
-const list = document.getElementById('personList');
-const search = document.getElementById('searchPerson');
-
-function populateSelect(filter=''){
-  sel.innerHTML = '';
-  state.people
-    .filter(p=>(p.name+' '+(p.last||'')).toLowerCase().includes(filter.toLowerCase()))
-    .forEach(p=>{
-      const opt=document.createElement('option');
-      opt.value=p.id; opt.textContent=p.name+' '+(p.last||'');
-      sel.appendChild(opt);
-    });
-  // Mostrar si hay resultados, ocultar si no
-  sel.style.display = sel.options.length>0 ? 'block':'none';
-}
-
-// === NUEVO: capturar el filtro ===
-//const filterState = document.getElementById('filterState');
-
-// Combina guardadas + temporales
-// Modificamos renderPersonList para aplicar filtro
-function renderPersonList(filter=''){
-  list.innerHTML='';
-  const me = sel.value;
-  if(!me) return;
-
-  const conns = {...(state.connections[me] || {}), ...(tempSelections[me] || {})};
-
-  state.people
-    .filter(p=>(p.name+' '+(p.last||'')).toLowerCase().includes(filter.toLowerCase()))
-    .forEach(p=>{
-      if(p.id===me) return;
-
-      // Aplicar filtro activo
-      const isSaved = !!state.connections[me]?.[p.id];
-      const isTemp = !!tempSelections[me]?.[p.id];
-      if (activeFilter==="saved" && !isSaved) return;
-      if (activeFilter==="temp" && !isTemp) return;
-
-      const item=document.createElement('div'); item.className='person-item';
-      const img=document.createElement('img'); img.src=p.img;
-      const label=document.createElement('div'); label.textContent=p.name+' '+(p.last||''); label.style.flex='1';
-      const chk=document.createElement('input');
-      chk.type='checkbox';
-      chk.dataset.id=p.id;
-      chk.checked = !!conns[p.id];
-
-      if(isSaved) chk.className = 'chk-saved';
-      else if(isTemp) chk.className = 'chk-temp';
-      else chk.className = 'chk-none';
-
-      chk.addEventListener('change', ()=>{
-        if(!tempSelections[me]) tempSelections[me] = {};
-        if(chk.checked) tempSelections[me][p.id] = true;
-        else delete tempSelections[me][p.id];
-        renderPersonList(filter);
-      });
-
-      item.appendChild(img); item.appendChild(label); item.appendChild(chk);
-      list.appendChild(item);
-    });
-  
-  updateSelectionSummary();
-}
-
-// === NUEVO: refrescar lista al cambiar filtro ===
-//filterState.addEventListener('change', ()=> renderPersonList(search.value));
-
-// Eventos Soy
-input.addEventListener('input', ()=> populateSelect(input.value));
-
-sel.addEventListener('change', ()=> { 
-  input.value = sel.options[sel.selectedIndex].text; 
-  sel.style.display='none'; 
-  renderPersonList(search.value); 
-  refreshGraph(); 
-});
-
-// Si hacés click afuera, ocultar menú
-document.addEventListener('click', (e)=>{
-  if(!e.target.closest('#currentPersonInput') && !e.target.closest('#currentPerson')){
-    sel.style.display = 'none';
-  }
-});
-
-search.addEventListener('input', ()=> renderPersonList(search.value));
-
-
-// Volver
-document.getElementById('btnVolver').addEventListener('click', ()=> {
-  window.location.href = './index.html';
-});
-
-// === NUEVO: actualizar contadores en los textos ===
-function updateSelectionSummary() {
-  const me = sel.value;
-  if (!me) return;
-
-  let savedCount = 0;
-  let tempCount = 0;
-  let allCount = 0;
-
-  const conns = state.connections[me] || {};
-  const temps = tempSelections[me] || {};
-
-  state.people.forEach(p => {
-    if (p.id === me) return;
-    allCount++;
-    if (conns[p.id]) savedCount++;
-    else if (temps[p.id]) tempCount++;
-  });
-
-  // Actualizar texto de cada filtro
-  document.querySelector('[data-filter="all"]').textContent   = `⬜ Todos (${allCount})`;
-  document.querySelector('[data-filter="saved"]').textContent = `🟩 Guardado (${savedCount})`;
-  document.querySelector('[data-filter="temp"]').textContent  = `🟧 Seleccionado (${tempCount})`;
-}
-
-// === NUEVO: listeners de filtros ===
-let activeFilter = "all";
-document.querySelectorAll('#filterBar span').forEach(span => {
-  span.addEventListener('click', () => {
-    // Actualizar activo
-    activeFilter = span.dataset.filter;
-
-    // Quitar clase 'selected' de todos y poner solo en el clickeado
-    document.querySelectorAll('#filterBar span').forEach(s => s.classList.remove('selected'));
-    span.classList.add('selected');
-
-    // Refrescar lista con filtro aplicado
-    renderPersonList(search.value);
-  });
-});
-
-
-
-
-// Guardar conexiones
-document.getElementById('btnSave').addEventListener('click', ()=>{
-  const me = sel.value;
-  if(!me) return;
-
-  if(!state.connections[me]) state.connections[me] = {};
-
-  if(tempSelections[me]){
-    for(const id in tempSelections[me]) state.connections[me][id] = true;
-    tempSelections[me] = {};
-  }
-
-  const checks = Array.from(list.querySelectorAll('input[type=checkbox]'));
-  checks.forEach(c=>{
-    if(c.checked) state.connections[me][c.dataset.id] = true;
-    else delete state.connections[me][c.dataset.id];
-  });
-
-  saveAll(state);
-  refreshGraph();
-  renderPersonList(search.value);
-  updateSelectionSummary(); // === NUEVO ===
-  alert('Conexiones guardadas');
-});
-
-
-// Borrar todo con código
-document.getElementById('btnClear').addEventListener('click', ()=>{
-  const conf = prompt("Escribe el código 'BORRAR' para eliminar todos los datos:");
-  if(conf!=="BORRAR") return alert("Código incorrecto, operación cancelada.");
-  localStorage.removeItem(LS_KEY);
-  state.connections={}; tempSelections={};
-  refreshGraph(); renderPersonList();
-  alert("Todos los datos fueron borrados.");
-});
-
-// Init
-(async function init(){
-  const persisted = loadAll();
-  const people = await fetchPeople();
-  state.people = people;
-  state.connections = persisted?.connections || {};
-  populateSelect();
-  renderPersonList();
-  refreshGraph();
-})();
-</script>
-</body>
-</html>
