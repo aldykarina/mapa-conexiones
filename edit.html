@@ -131,6 +131,9 @@
 const PEOPLE_JSON = './people_example20.json';
 const LS_KEY = 'mapaConexiones_v1';
 
+// 🔧 usado para controlar el intervalo de movimiento (se limpia antes de crear uno nuevo) ----------------------------------------------------------
+let shuffleTimer = null;
+
 let state = { people: [], connections: {} };
 let tempSelections = {};
 
@@ -186,156 +189,121 @@ function buildElements(){
   return { nodes, edges };
 }
 
-/*  // FUNCION  random sin cuadrado
-function refreshGraph(){
-  const elems = buildElements();
-  cy.elements().remove();
-  cy.add(elems.nodes);
-  cy.add(elems.edges);
-  cy.layout({ 
-    name: 'cose',
-    animate: true,
-    nodeRepulsion: 8000,    // fuerza que separa nodos
-    idealEdgeLength: 120,   // distancia ideal entre nodos
-    gravity: 0.25,           // atrae nodos hacia el centro
-    numIter: 2000,          // más iteraciones para estabilidad
-    fit: true,              // ajusta la vista al contenedor
-    randomize: true,         // evita posiciones exactamente iguales
-    padding: 30 
-  }).run();
-}
-  */
 
+// FUNCION DEL GRAFO CON ANIMACION ----------------------------------------------------------------------------------------
 
-  // FUNCION CUADRARDAAAAAAAAAAAAAA
-  /*
-function refreshGraph(){
+// REEMPLAZA tu función refreshGraph por esta versión:
+function refreshGraph(autoMove = false){
   const elems = buildElements();
   cy.elements().remove();
   cy.add(elems.nodes);
   cy.add(elems.edges);
 
-  // Paso 1: aplicar layout grid normal
-  const gridLayout = cy.layout({
-    name: 'grid',
-    rows: Math.ceil(Math.sqrt(elems.nodes.length)),
-    cols: Math.ceil(Math.sqrt(elems.nodes.length)),
-    fit: true,
-    padding: 50
-  });
-  gridLayout.run();
+  const container = cy.container().getBoundingClientRect();
+  const containerWidth = Math.max(200, container.width);
+  const containerHeight = Math.max(150, container.height);
 
-  // Paso 2: añadir un desplazamiento aleatorio pequeño a cada nodo
-  cy.nodes().forEach(node => {
-    const pos = node.position();
-    node.position({
-      x: pos.x + (Math.random() - 0.5) * 50, // mover +-25px en X
-      y: pos.y + (Math.random() - 0.5) * 50  // mover +-25px en Y
-    });
-  });
-}
-*/
-  // FUNCION CUADRARDAAAAAA -------------------RAAAANDOM
+  const n = elems.nodes.length;
+  if (!n) return;
 
+  // --- elegir número de columnas basadas en la proporción del contenedor
+  const aspect = containerWidth / containerHeight;
+  const base = Math.ceil(Math.sqrt(n));
+  const cols = Math.max(2, Math.min(n, Math.round(base * Math.min(2, Math.max(1, aspect)))));
+  const rows = Math.ceil(n / cols);
 
-/*
-function refreshGraph(){
-  const elems = buildElements();
-  cy.elements().remove();
-  cy.add(elems.nodes);
-  cy.add(elems.edges);
+  // padding interno
+  const padding = 40;
+  const usableW = Math.max(50, containerWidth - 2 * padding);
+  const usableH = Math.max(50, containerHeight - 2 * padding);
 
-  // 1. Calcular posiciones de grid "vacías"
-  const gridSize = Math.ceil(Math.sqrt(elems.nodes.length));
-  const positions = [];
-  let spacing = 150; // espacio entre celdas
-  
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      positions.push({ 
-        x: col * spacing, 
-        y: row * spacing 
-      });
-    }
-  }
+  const cellW = usableW / cols;
+  const cellH = usableH / rows;
 
-  // 2. Barajar posiciones aleatoriamente (Fisher-Yates shuffle)
-  for (let i = positions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [positions[i], positions[j]] = [positions[j], positions[i]];
-  }
-
-  // 3. Asignar posiciones randomizadas a cada nodo
-  cy.nodes().forEach((node, i) => {
-    const pos = positions[i];
-    node.position({
-      x: pos.x + (Math.random() - 0.5) * 50, // pequeño desplazamiento extra
-      y: pos.y + (Math.random() - 0.5) * 50
-    });
-  });
-
-  // 4. Ajustar vista al canvas
-  cy.fit(cy.nodes(), 50);
-}
-*/
-  // FUNCION CUADRARDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-
-
-function refreshGraph(autoMove = true){
-  const elems = buildElements();
-  cy.elements().remove();
-  cy.add(elems.nodes);
-  cy.add(elems.edges);
-
-  // Configuración del grid
-  //const gridSize = Math.ceil(Math.sqrt(elems.nodes.length));
-  const cols = 6; // más columnas = más ancho
-  const rows = Math.ceil(elems.nodes.length / cols);
-  const spacing = 150; // distancia entre celdas
+  // Generar posiciones de la grilla
   let positions = [];
-
-  // Generar todas las posiciones de la grilla
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      positions.push({ 
-        x: col * spacing, 
-        y: row * spacing 
+  for (let r = 0; r < rows; r++){
+    for (let c = 0; c < cols; c++){
+      positions.push({
+        x: padding + c * cellW + cellW / 2,
+        y: padding + r * cellH + cellH / 2
       });
     }
   }
 
-  // Función que baraja y aplica nuevas posiciones
-  function shufflePositions(){
+  const nodes = cy.nodes();
+  nodes.forEach((node, i) => {
+    const pos = positions[i] || {
+      x: padding + Math.random() * usableW,
+      y: padding + Math.random() * usableH
+    };
+    node.position({ x: pos.x, y: pos.y });
+  });
+
+  // Calcular bounding box
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(node => {
+    const p = node.position();
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  });
+
+  const bboxW = Math.max(1, maxX - minX);
+  const bboxH = Math.max(1, maxY - minY);
+
+  // Calcular escala
+  const margin = 30;
+  const scaleX = (containerWidth - 2 * margin) / bboxW;
+  const scaleY = (containerHeight - 2 * margin) / bboxH;
+  let scale = Math.min(scaleX, scaleY);
+  scale = Math.min(scale, 1);
+  scale = Math.max(scale, 0.25);
+
+  // Pan centrado
+  const bboxCenterX = (minX + maxX) / 2;
+  const bboxCenterY = (minY + maxY) / 2;
+  const panX = containerWidth / 2 - scale * bboxCenterX;
+  const panY = containerHeight / 2 - scale * bboxCenterY;
+
+  cy.zoom(scale);
+  cy.pan({ x: panX, y: panY });
+
+  // Función que mezcla posiciones entre nodos
+  function shufflePositions() {
     // Barajar posiciones (Fisher-Yates)
-    for (let i = positions.length - 1; i > 0; i--) {
+    let shuffled = [...positions];
+    for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [positions[i], positions[j]] = [positions[j], positions[i]];
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 
-    // Aplicar nuevas posiciones con animación
-    cy.nodes().forEach((node, i) => {
-      const pos = positions[i];
+    const jitter = 20;
+    nodes.forEach((node, i) => {
+      const pos = shuffled[i] || positions[i];
       node.animate({
         position: {
-          x: pos.x + (Math.random() - 0.5) * 50, // pequeño desplazamiento extra
-          y: pos.y + (Math.random() - 0.5) * 50
+          x: pos.x + (Math.random() - 0.5) * jitter,
+          y: pos.y + (Math.random() - 0.5) * jitter
         },
-        duration: 1000 // 1s animación
+        duration: 700
       });
     });
-
-    cy.fit(cy.nodes(), 80); // ajustar al canvas con padding
   }
 
-  // Ejecutar una vez
-  shufflePositions();
+  // limpiar interval anterior
+  if (shuffleTimer) {
+    clearInterval(shuffleTimer);
+    shuffleTimer = null;
+  }
 
-  // Si autoMove está activado, repetir cada 10s = 10.000 / 
-  if(autoMove){
-    setInterval(shufflePositions, 100000);
+  shufflePositions(); // correr una vez
+
+  if (autoMove) {
+    shuffleTimer = setInterval(shufflePositions, 10000);
   }
 }
-
 
 
 

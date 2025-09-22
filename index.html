@@ -144,6 +144,8 @@
   <script>
     const PEOPLE_JSON = './people_example20.json';
     const LS_KEY = 'mapaConexiones_v1';
+    let shuffleTimer = null;
+
     let state = { people: [], connections: {} };
 
     // helpers
@@ -200,14 +202,129 @@
       }
       return { nodes, edges };
     }
+    // REFRESCAR GRAFICO
+    
+    
+    // REEMPLAZA tu función refreshGraph por esta versión:
+    function refreshGraph(autoMove = false){
+      const elems = buildElements();
+      cy.elements().remove();
+      cy.add(elems.nodes);
+      cy.add(elems.edges);
 
+      const container = cy.container().getBoundingClientRect();
+      const containerWidth = Math.max(200, container.width);
+      const containerHeight = Math.max(150, container.height);
+
+      const n = elems.nodes.length;
+      if (!n) return;
+
+      // --- elegir número de columnas basadas en la proporción del contenedor
+      const aspect = containerWidth / containerHeight;
+      const base = Math.ceil(Math.sqrt(n));
+      const cols = 6; // Math.max(2, Math.min(n, Math.round(base * Math.min(2, Math.max(1, aspect)))));
+      const rows = Math.ceil(n / cols);
+
+      // padding interno
+      const padding = 40;
+      const usableW = Math.max(50, containerWidth - 2 * padding);
+      const usableH = Math.max(50, containerHeight - 2 * padding);
+
+      const cellW = usableW / cols;
+      const cellH = usableH / rows;
+
+      // Generar posiciones de la grilla
+      let positions = [];
+      for (let r = 0; r < rows; r++){
+        for (let c = 0; c < cols; c++){
+          positions.push({
+            x: padding + c * cellW + cellW / 2,
+            y: padding + r * cellH + cellH / 2
+          });
+        }
+      }
+
+      const nodes = cy.nodes();
+      nodes.forEach((node, i) => {
+        const pos = positions[i] || {
+          x: padding + Math.random() * usableW,
+          y: padding + Math.random() * usableH
+        };
+        node.position({ x: pos.x, y: pos.y });
+      });
+
+      // Calcular bounding box
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      nodes.forEach(node => {
+        const p = node.position();
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+
+      const bboxW = Math.max(1, maxX - minX);
+      const bboxH = Math.max(1, maxY - minY);
+
+      // Calcular escala
+      const margin = 30;
+      const scaleX = (containerWidth - 2 * margin) / bboxW;
+      const scaleY = (containerHeight - 2 * margin) / bboxH;
+      let scale = Math.min(scaleX, scaleY);
+      scale = Math.min(scale, 1);
+      scale = Math.max(scale, 0.25);
+
+      // Pan centrado
+      const bboxCenterX = (minX + maxX) / 2;
+      const bboxCenterY = (minY + maxY) / 2;
+      const panX = containerWidth / 2 - scale * bboxCenterX;
+      const panY = containerHeight / 2 - scale * bboxCenterY;
+
+      cy.zoom(scale);
+      cy.pan({ x: panX, y: panY });
+
+      // Función que mezcla posiciones entre nodos
+      function shufflePositions() {
+        // Barajar posiciones (Fisher-Yates)
+        let shuffled = [...positions];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        const jitter = 20;
+        nodes.forEach((node, i) => {
+          const pos = shuffled[i] || positions[i];
+          node.animate({
+            position: {
+              x: pos.x + (Math.random() - 0.5) * jitter,
+              y: pos.y + (Math.random() - 0.5) * jitter
+            },
+            duration: 700
+          });
+        });
+      }
+
+      // limpiar interval anterior
+      if (shuffleTimer) {
+        clearInterval(shuffleTimer);
+        shuffleTimer = null;
+      }
+
+      shufflePositions(); // correr una vez
+
+      if (autoMove) {
+        shuffleTimer = setInterval(shufflePositions, 10000);
+      }
+    }
+    /*
     function refreshGraph(){
       const elems = buildElements();
       cy.elements().remove();
       cy.add(elems.nodes);
       cy.add(elems.edges);
       cy.layout({ name:'cose', animate:true }).run();
-    }
+    } */
 
     // react to storage changes from edit.html
     window.addEventListener('storage', (e)=>{
